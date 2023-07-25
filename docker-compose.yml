@@ -51,4 +51,4 @@ services:
       - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
     volumes:
-      - /home/node/.n8n
+      - /root/node/.n8n

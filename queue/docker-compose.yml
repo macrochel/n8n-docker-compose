@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - 5678:5678
+    environment:
+      - N8N_QUEUE_TYPE=redis
+      - N8N_QUEUE_HOST=redis
+      - N8N_QUEUE_PORT=6379
+      - N8N_QUEUE_NAME=n8n
+    networks:
+      - n8n
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=n8n
+      - MYSQL_USER=n8n
+      - MYSQL_PASSWORD=root123
+    networks:
+      - n8n
+
+  redis:
+    image: redis:latest
+    networks:
+      - n8n
+
+networks:
+  n8n:
+    driver: bridge

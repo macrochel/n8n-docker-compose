@@ -6,6 +6,8 @@ services:
     ports:
       - 5678:5678
     environment:
+      - N8N_LOG_LEVEL=silent
+      - WEBHOOK_URL=http://
       - N8N_QUEUE_TYPE=redis
       - N8N_QUEUE_HOST=redis
       - N8N_QUEUE_PORT=6379

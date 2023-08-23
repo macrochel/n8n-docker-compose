@@ -7,6 +7,10 @@ volumes:
 
 x-shared: &shared
   restart: always
+  deploy:
+    resources:
+      limits:
+        memory: 8000M
   image: docker.n8n.io/n8nio/n8n
   environment:
     - DB_TYPE=postgresdb

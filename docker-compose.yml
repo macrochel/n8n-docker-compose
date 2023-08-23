@@ -1,0 +1,164 @@
+version: '3.9'
+
+volumes:
+  db_storage:
+  n8n_storage:
+  redis_storage:
+  letsencrypt_storage:
+
+## n8n Environment Variables for Main, Worker and Webhook
+x-shared: &shared
+    image: n8nio/n8n:${N8N_VERSION_TAG}
+    restart: always
+    environment:
+      ### - n8n Security
+      - GENERIC_TIMEZONE
+      - N8N_PORT
+      - N8N_USER_MANAGEMENT_DISABLED
+      - N8N_BASIC_AUTH_USER
+      - N8N_BASIC_AUTH_PASSWORD
+      - N8N_ENCRYPTION_KEY
+      ### - n8n Customization
+      - N8N_DIAGNOSTICS_ENABLED
+      - N8N_PERSONALIZATION_ENABLED
+      - N8N_HIRING_BANNER_ENABLED
+      ### - n8n Execution
+      - N8N_LOG_LEVEL
+      - N8N_DISABLE_PRODUCTION_MAIN_PROCESS
+      - EXECUTIONS_MODE
+      - EXECUTIONS_PROCESS
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS
+      - EXECUTIONS_DATA_SAVE_ON_ERROR
+      - EXECUTIONS_DATA_PRUNE
+      - EXECUTIONS_DATA_MAX_AGE
+      - N8N_DEFAULT_BINARY_DATA_MODE
+      - N8N_AVAILABLE_BINARY_DATA_MODES
+      ### - n8n Database
+      - DB_TYPE
+      - DB_POSTGRESDB_PORT
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_NON_ROOT_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD}
+      - DB_POSTGRESDB_HOST
+      - DB_LOGGING_MAX_EXECUTION_TIME
+      ### - n8n Queue
+      - QUEUE_BULL_REDIS_PORT
+      - QUEUE_BULL_REDIS_HOST
+      - QUEUE_HEALTH_CHECK_ACTIVE
+      ### - Webhook
+      - WEBHOOK_URL
+      - N8N_ENDPOINT_WEBHOOK
+      - N8N_ENDPOINT_WEBHOOK_TEST
+      - N8N_ENDPOINT_WEBHOOK_WAIT
+      - N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - n8n_storage:/home/node/.n8n
+      - ${N8N_LOCAL_STORAGE}:/files
+
+services:
+
+####### - Traefik Reverse Proxy
+  traefik:
+    image: traefik:${TRAEFIK_VERSION_TAG}
+    restart: on-failure
+    command:
+      - "--log.level=INFO"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge.provider=route53"
+      - "--certificatesresolvers.myresolver.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_HOSTED_ZONE_ID
+    volumes:
+      - letsencrypt_storage:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+
+####### - ProstgreSQL Databse
+  postgres:
+    image: postgres:${POSTGRESQL_VERSION_TAG}
+    restart: always
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_NON_ROOT_USER
+      - POSTGRES_NON_ROOT_PASSWORD
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+      - ${DB_INIT_FILE}:/docker-entrypoint-initdb.d/init-data.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+####### - Redis  Queue Databse
+  redis:
+    image: redis:${REDIS_VERSION_TAG}
+    restart: always
+    volumes:
+      - redis_storage:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+####### - n8n Main Process
+  n8n-main:
+    <<: *shared
+    command: /bin/sh -c "sleep 5; n8n start"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n-main.rule=Host(`${N8N_UI_SUBDOMAIN}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.n8n-main.entrypoints=websecure"
+      - "traefik.http.routers.n8n-main.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.n8n-main.headers.SSLRedirect=true"
+      - traefik.http.middlewares.n8n-main.headers.STSSeconds=315360000
+      - traefik.http.middlewares.n8n-main.headers.browserXSSFilter=true
+      - traefik.http.middlewares.n8n-main.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.n8n-main.headers.forceSTSHeader=true
+      - traefik.http.middlewares.n8n-main.headers.SSLHost=${DOMAIN_NAME}
+      - traefik.http.middlewares.n8n-main.headers.STSIncludeSubdomains=true
+      - traefik.http.middlewares.n8n-main.headers.STSPreload=true
+
+####### - n8n Workers
+  n8n-worker:
+    <<: *shared
+    command: /bin/sh -c "sleep 5; n8n worker"
+    deploy:
+      replicas: ${N8N_WORKERS}
+
+####### - n8n Webhook
+  n8n-webhook:
+    <<: *shared
+    command: /bin/sh -c "sleep 5; n8n webhook"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n-webhook.rule=Host(`${N8N_WEBHOOK_SUBUDOMAIN}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.n8n-webhook.entrypoints=websecure"
+      - "traefik.http.routers.n8n-webhook.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.n8n-webhook.headers.SSLRedirect=true"
+      - traefik.http.middlewares.n8n-webhook.headers.STSSeconds=315360000
+      - traefik.http.middlewares.n8n-webhook.headers.browserXSSFilter=true
+      - traefik.http.middlewares.n8n-webhook.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.n8n-webhook.headers.forceSTSHeader=true
+      - traefik.http.middlewares.n8n-webhook.headers.SSLHost=${DOMAIN_NAME}
+      - traefik.http.middlewares.n8n-webhook.headers.STSIncludeSubdomains=true
+      - traefik.http.middlewares.n8n-webhook.headers.STSPreload=true

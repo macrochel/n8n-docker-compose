@@ -7,11 +7,13 @@ services:
       - 5678:5678
     environment:
       - N8N_LOG_LEVEL=silent
-      - WEBHOOK_URL=http://
+      - WEBHOOK_URL=https://your-webhook-url.com
       - N8N_QUEUE_TYPE=redis
       - N8N_QUEUE_HOST=redis
       - N8N_QUEUE_PORT=6379
       - N8N_QUEUE_NAME=n8n
+      - EXECUTIONS_WORKER=true
+      - EXECUTIONS_WORKER_NODES=3
     networks:
       - n8n
     depends_on:
@@ -30,6 +32,54 @@ services:
 
   redis:
     image: redis:latest
+    networks:
+      - n8n
+
+  worker-1:
+    image: n8nio/n8n:latest
+    command: /bin/sh -c "sleep 5; n8n worker"
+    environment:
+      - N8N_LOG_LEVEL=silent
+      - N8N_QUEUE_TYPE=redis
+      - N8N_QUEUE_HOST=redis
+      - N8N_QUEUE_PORT=6379
+      - N8N_QUEUE_NAME=n8n
+      - EXECUTIONS_WORKER=true
+      - EXECUTIONS_WORKER_NODES=1
+    depends_on:
+      - n8n
+    networks:
+      - n8n
+
+  worker-2:
+    image: n8nio/n8n:latest
+    command: /bin/sh -c "sleep 5; n8n worker"
+    environment:
+      - N8N_LOG_LEVEL=silent
+      - N8N_QUEUE_TYPE=redis
+      - N8N_QUEUE_HOST=redis
+      - N8N_QUEUE_PORT=6379
+      - N8N_QUEUE_NAME=n8n
+      - EXECUTIONS_WORKER=true
+      - EXECUTIONS_WORKER_NODES=1
+    depends_on:
+      - n8n
+    networks:
+      - n8n
+
+  worker-3:
+    image: n8nio/n8n:latest
+    command: /bin/sh -c "sleep 5; n8n worker"
+    environment:
+      - N8N_LOG_LEVEL=silent
+      - N8N_QUEUE_TYPE=redis
+      - N8N_QUEUE_HOST=redis
+      - N8N_QUEUE_PORT=6379
+      - N8N_QUEUE_NAME=n8n
+      - EXECUTIONS_WORKER=true
+      - EXECUTIONS_WORKER_NODES=1
+    depends_on:
+      - n8n
     networks:
       - n8n
 

@@ -35,7 +35,7 @@ x-shared: &shared
 
 services:
   postgres:
-    image: postgres:11
+    image: postgres:alpine
     restart: always
     environment:
       - POSTGRES_USER
@@ -69,18 +69,6 @@ services:
       - 5678:5678
 
   n8n-worker-1:  # Worker container 1
-    <<: *shared
-    command: worker
-    depends_on:
-      - n8n
-
-  n8n-worker-2:  # Worker container 2
-    <<: *shared
-    command: worker
-    depends_on:
-      - n8n
-
-  n8n-worker-3:  # Worker container 3
     <<: *shared
     command: worker
     depends_on:

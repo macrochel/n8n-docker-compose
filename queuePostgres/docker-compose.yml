@@ -41,7 +41,6 @@ x-shared: &shared
       condition: service_healthy
 
 services:
-
   traefik:
     image: 'traefik'
     command:
@@ -62,7 +61,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   postgres:
-    image: postgres:alpine
+    image: postgres:11
     restart: always
     environment:
       - POSTGRES_USER

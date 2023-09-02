@@ -34,6 +34,28 @@ x-shared: &shared
       condition: service_healthy
 
 services:
+  traefik:
+    image: traefik:v2.5
+    restart: always
+    ports:
+      - "80:80"    # HTTP
+      - "443:443"  # HTTPS
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Connect to Docker API
+    command:
+      - --api.insecure=true  # Disable Traefik API security for simplicity (not recommended for production)
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.myresolver.acme.httpchallenge=true
+      - --certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.myresolver.acme.email=your@email.com  # Your email address for Let's Encrypt notifications
+      - --certificatesresolvers.myresolver.acme.storage=/acme.json  # Let's Encrypt certificate storage
+      - --certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory  # Use staging server for testing
+      # Replace the above line with the following for production use:
+      # - --certificatesresolvers.myresolver.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+
   postgres:
     image: postgres:alpine
     restart: always
@@ -65,10 +87,13 @@ services:
 
   n8n:
     <<: *shared
-    ports:
-      - 5678:5678
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`yourdomain.com`)"  # Replace with your domain
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
 
-  n8n-worker-1:  # Worker container 1
+  n8n-worker-1:
     <<: *shared
     command: worker
     depends_on:

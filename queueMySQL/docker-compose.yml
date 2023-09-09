@@ -51,6 +51,38 @@ services:
     networks:
       - n8n
 
+  worker-2:
+    image: n8nio/n8n:latest
+    command: worker
+    environment:
+      - N8N_LOG_LEVEL=silent
+      - N8N_QUEUE_TYPE=redis
+      - N8N_QUEUE_HOST=redis
+      - N8N_QUEUE_PORT=6379
+      - N8N_QUEUE_NAME=n8n
+      - EXECUTIONS_WORKER=true
+      - EXECUTIONS_WORKER_NODES=1
+    depends_on:
+      - n8n
+    networks:
+      - n8n
+
+  worker-3:
+    image: n8nio/n8n:latest
+    command: worker
+    environment:
+      - N8N_LOG_LEVEL=silent
+      - N8N_QUEUE_TYPE=redis
+      - N8N_QUEUE_HOST=redis
+      - N8N_QUEUE_PORT=6379
+      - N8N_QUEUE_NAME=n8n
+      - EXECUTIONS_WORKER=true
+      - EXECUTIONS_WORKER_NODES=1
+    depends_on:
+      - n8n
+    networks:
+      - n8n
+
 networks:
   n8n:
     driver: bridge

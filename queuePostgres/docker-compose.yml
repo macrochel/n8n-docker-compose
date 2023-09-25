@@ -10,7 +10,7 @@ x-shared: &shared
   deploy:
     resources:
       limits:
-        memory: 8000M
+        memory: 1000M
   image: docker.n8n.io/n8nio/n8n
   environment:
     - DB_TYPE=postgresdb
@@ -27,7 +27,6 @@ x-shared: &shared
     - redis
   volumes:
     - n8n_storage:/home/node/.n8n
-    - /var/run/docker.sock:/var/run/docker.sock
   depends_on:
     redis:
       condition: service_healthy
@@ -67,9 +66,9 @@ services:
   n8n:
     <<: *shared
     ports:
-      - '127.0.0.1:5678:5678'
+      - 5678:5678
 
-  n8n-worker-1:
+  n8n-worker:
     <<: *shared
     command: worker
     depends_on:
